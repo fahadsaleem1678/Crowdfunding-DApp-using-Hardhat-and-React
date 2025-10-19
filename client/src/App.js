@@ -36,7 +36,6 @@ function App() {
       const signer = await provider.getSigner();
       const address = await signer.getAddress();
 
-      // Initialize smart contracts
       const kyc = new ethers.Contract(KYC_CONTRACT_ADDRESS, KYC_ABI, signer);
       const crowdfunding = new ethers.Contract(
         CROWDFUNDING_CONTRACT_ADDRESS,
@@ -145,6 +144,54 @@ function App() {
     } catch (err) {
       console.error("Error loading campaigns:", err);
       setStatus("⚠️ Failed to fetch campaigns — check contract or ABI");
+    }
+  };
+
+  // -----------------------------
+  // 🔹 Contribute to Campaign
+  // -----------------------------
+  const contributeToCampaign = async (campaignId) => {
+    if (!crowdfundingContract || !account) {
+      alert("Connect MetaMask first!");
+      return;
+    }
+
+    const amountEth = prompt("Enter amount in ETH to contribute:");
+    if (!amountEth || isNaN(amountEth) || Number(amountEth) <= 0) {
+      alert("❌ Invalid amount");
+      return;
+    }
+
+    try {
+      const tx = await crowdfundingContract.contribute(campaignId, {
+        value: ethers.parseEther(amountEth.toString()),
+      });
+      await tx.wait();
+      alert(`✅ Contributed ${amountEth} ETH to campaign ${campaignId}`);
+      loadCampaigns();
+    } catch (err) {
+      console.error(err);
+      alert("❌ Transaction failed");
+    }
+  };
+
+  // -----------------------------
+  // 🔹 Withdraw Campaign Funds
+  // -----------------------------
+  const withdrawFunds = async (campaignId) => {
+    if (!crowdfundingContract || !account) {
+      alert("Connect MetaMask first!");
+      return;
+    }
+
+    try {
+      const tx = await crowdfundingContract.withdraw(campaignId);
+      await tx.wait();
+      alert(`💰 Withdraw successful for campaign ${campaignId}`);
+      loadCampaigns();
+    } catch (err) {
+      console.error(err);
+      alert("❌ Withdrawal failed — only creator can withdraw after completion");
     }
   };
 
@@ -280,6 +327,41 @@ function App() {
               <p>👤 Creator: {c.creator}</p>
               <p>📅 Created: {c.createdAt}</p>
               <p>Status: {c.status}</p>
+
+              {/* Contribute Button */}
+              {c.status === "Active" && (
+                <button
+                  onClick={() => contributeToCampaign(c.id)}
+                  style={{
+                    padding: "8px 16px",
+                    backgroundColor: "#008CBA",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "5px",
+                    cursor: "pointer",
+                    marginRight: "10px",
+                  }}
+                >
+                  💸 Contribute
+                </button>
+              )}
+
+              {/* Withdraw Button */}
+              {c.status === "Completed" && c.creator.toLowerCase() === account?.toLowerCase() && (
+                <button
+                  onClick={() => withdrawFunds(c.id)}
+                  style={{
+                    padding: "8px 16px",
+                    backgroundColor: "#f39c12",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "5px",
+                    cursor: "pointer",
+                  }}
+                >
+                  🏦 Withdraw Funds
+                </button>
+              )}
             </li>
           ))}
         </ul>
